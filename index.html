@@ -22,6 +22,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -304,7 +305,7 @@ function DateFilterBar({dateFrom,dateTo,filterFrom,filterTo,setFilterFrom,setFil
         background:"linear-gradient(135deg,#f59e0b,#ef6c00)",color:"#111",
         fontSize:11,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6,
       }}>
-        <span style={{fontSize:13}}>⬇</span> Baixar CSV{isFiltered?" filtrado":""}
+        <span style={{fontSize:13}}>⬇</span> Baixar Excel{isFiltered?" filtrado":""}
       </button>
     </div>
   );
@@ -371,33 +372,47 @@ function Dashboard() {
   // Download filtered CSV
   const handleDownload = useCallback(() => {
     if (!filteredSessions.length) return;
-    // Rebuild CSV in original HikCentral format (Level;Time;Source;Event;Resource Name;Area;Description;Address)
-    const csvLines = [];
-    // Add metadata header
-    if (rawData.metaLines) rawData.metaLines.forEach(l => csvLines.push(l));
-    // Separator
-    csvLines.push('"--;"--"');
-    // Column header
-    csvLines.push(rawData.headerLine || '"Level";"Time";"Source";"Event";"Resource Name";"Area";"Description";"Address"');
-    // Add both Start and Stop raw lines for each session, sorted by time (newest first like original)
-    const allLines = [];
-    filteredSessions.forEach(s => {
-      if (s.rawStart) allLines.push({ time: s.start, line: s.rawStart });
-      if (s.rawStop) allLines.push({ time: s.stop, line: s.rawStop });
-    });
-    allLines.sort((a, b) => b.time - a.time); // newest first
-    allLines.forEach(r => csvLines.push(r.line));
 
-    const csv = "\uFEFF" + csvLines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    // Format datetime with seconds: "19/05/2026 10:43:14"
+    const fmtDt = d => {
+      const dd = String(d.getDate()).padStart(2,"0");
+      const mm = String(d.getMonth()+1).padStart(2,"0");
+      const yy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mi = String(d.getMinutes()).padStart(2,"0");
+      const ss = String(d.getSeconds()).padStart(2,"0");
+      return `${dd}/${mm}/${yy} ${hh}:${mi}:${ss}`;
+    };
+
+    // Build rows
+    const rows = filteredSessions.map(s => ({
+      "PDV": s.resource,
+      "Area": s.area,
+      "Início": fmtDt(s.start),
+      "Fim": fmtDt(s.stop),
+      "Duração (seg)": s.dur,
+      "Endereço": s.address,
+    }));
+
+    // Create workbook
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Set column widths
+    ws["!cols"] = [
+      { wch: 30 },  // PDV
+      { wch: 45 },  // Area
+      { wch: 20 },  // Início
+      { wch: 20 },  // Fim
+      { wch: 14 },  // Duração
+      { wch: 28 },  // Endereço
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Abordagens");
+
     const fromStr = filterFrom || toDateStr(rawData.sessions[0].start);
     const toStr = filterTo || toDateStr(rawData.sessions[rawData.sessions.length-1].start);
-    a.href = url;
-    a.download = `Service_Log_${fromStr}_${toStr}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(wb, `Service_Log_${fromStr}_${toStr}.xlsx`);
   }, [filteredSessions, filterFrom, filterTo, rawData]);
 
   const S = {bg:"#090b10",card:"#111318",border:"#1c2030",fg:"#eceff4",muted:"#5c6578",accent:"#f59e0b"};
