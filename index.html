@@ -39,6 +39,10 @@ function parseCSVRaw(text) {
   }
   if (headerIdx === -1) return null;
 
+  // Keep original header line and metadata lines for CSV export
+  const headerLine = lines[headerIdx].trim();
+  const metaLines = lines.slice(0, headerIdx).map(l => l.trim()).filter(Boolean);
+
   const rows = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -51,11 +55,11 @@ function parseCSVRaw(text) {
     if (!timeStr || timeStr === "Time") continue;
     const dt = new Date(timeStr.replace(/\//g, "-"));
     if (isNaN(dt.getTime())) continue;
-    rows.push({ time: dt, event, resource: parts[4], area: parts[5], address: parts.length > 7 ? parts[7] : "" });
+    rows.push({ time: dt, event, resource: parts[4], area: parts[5], address: parts.length > 7 ? parts[7] : "", rawLine: line });
   }
   rows.sort((a, b) => a.time - b.time);
 
-  // Pair sessions
+  // Pair sessions — keep both raw lines (start + stop)
   const sessions = [];
   const open = {};
   for (const r of rows) {
@@ -64,7 +68,11 @@ function parseCSVRaw(text) {
       const start = open[r.resource]; delete open[r.resource];
       const dur = (r.time - start.time) / 1000;
       if (dur > 0 && dur < 3600) {
-        sessions.push({ resource: start.resource, area: r.area, start: start.time, stop: r.time, dur: Math.round(dur), address: start.address });
+        sessions.push({
+          resource: start.resource, area: r.area, start: start.time, stop: r.time,
+          dur: Math.round(dur), address: start.address,
+          rawStart: start.rawLine, rawStop: r.rawLine,
+        });
       }
     }
   }
@@ -76,7 +84,7 @@ function parseCSVRaw(text) {
     if (lines[i].includes("Report Time")) reportRange = lines[i].replace(/.*Report Time[:\s]*/i, "").replace(/"/g, "").trim();
   }
 
-  return { sessions, totalRows: rows.length, exportTime, reportRange };
+  return { sessions, totalRows: rows.length, exportTime, reportRange, headerLine, metaLines };
 }
 
 // ═══ AGGREGATE from filtered sessions ═══
@@ -363,19 +371,31 @@ function Dashboard() {
   // Download filtered CSV
   const handleDownload = useCallback(() => {
     if (!filteredSessions.length) return;
-    const header = "PDV;Area;Inicio;Fim;Duracao_seg;Endereco";
-    const rows = filteredSessions.map(s => {
-      const fmtDt = d => d.toLocaleString("pt-BR").replace(",","");
-      return `"${s.resource}";"${s.area}";"${fmtDt(s.start)}";"${fmtDt(s.stop)}";${s.dur};"${s.address}"`;
+    // Rebuild CSV in original HikCentral format (Level;Time;Source;Event;Resource Name;Area;Description;Address)
+    const csvLines = [];
+    // Add metadata header
+    if (rawData.metaLines) rawData.metaLines.forEach(l => csvLines.push(l));
+    // Separator
+    csvLines.push('"--;"--"');
+    // Column header
+    csvLines.push(rawData.headerLine || '"Level";"Time";"Source";"Event";"Resource Name";"Area";"Description";"Address"');
+    // Add both Start and Stop raw lines for each session, sorted by time (newest first like original)
+    const allLines = [];
+    filteredSessions.forEach(s => {
+      if (s.rawStart) allLines.push({ time: s.start, line: s.rawStart });
+      if (s.rawStop) allLines.push({ time: s.stop, line: s.rawStop });
     });
-    const csv = "\uFEFF" + header + "\n" + rows.join("\n");
+    allLines.sort((a, b) => b.time - a.time); // newest first
+    allLines.forEach(r => csvLines.push(r.line));
+
+    const csv = "\uFEFF" + csvLines.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const fromStr = filterFrom || toDateStr(rawData.sessions[0].start);
     const toStr = filterTo || toDateStr(rawData.sessions[rawData.sessions.length-1].start);
     a.href = url;
-    a.download = `abordagens_${fromStr}_${toStr}.csv`;
+    a.download = `Service_Log_${fromStr}_${toStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }, [filteredSessions, filterFrom, filterTo, rawData]);
