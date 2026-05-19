@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <title>Roda Conveniência — Dashboard KPI de Abordagens</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23f59e0b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='20' font-weight='800' fill='white' font-family='monospace'>R</text></svg>"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
@@ -331,13 +334,15 @@ function Dashboard() {
     const username = loc.hostname.split(".")[0] || "";
     const rawUrl = `https://raw.githubusercontent.com/${username}/${repoName}/main/data.csv`;
 
+    const cacheBuster = `?t=${Date.now()}`;
+
     const tryFetch = async () => {
       try {
-        const r1 = await fetch("data.csv");
+        const r1 = await fetch("data.csv" + cacheBuster);
         if (r1.ok) { const t = await r1.text(); if (t.includes("Two-Way Audio")||t.includes('"Level"')) return t; }
       } catch(e){}
       try {
-        const r2 = await fetch(rawUrl);
+        const r2 = await fetch(rawUrl + cacheBuster);
         if (r2.ok) { const t = await r2.text(); if (t.includes("Two-Way Audio")||t.includes('"Level"')) return t; }
       } catch(e){}
       throw new Error("Arquivo data.csv não encontrado. Faça upload do CSV com o nome 'data.csv' na raiz do repositório.");
