@@ -16,99 +16,199 @@
   input:focus{outline:none;border-color:#f59e0b !important}
   button{cursor:pointer;transition:all .15s}
   button:hover{filter:brightness(1.1)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loader{width:36px;height:36px;border:3px solid #1c2030;border-top-color:#f59e0b;border-radius:50%;animation:spin .8s linear infinite}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 
-// ═══ DATA FROM CSV (Service_Log_2026_05_19) ═══
-const DAILY_DATA = {"2026-04-02":30,"2026-04-03":63,"2026-04-04":37,"2026-04-05":26,"2026-04-06":37,"2026-04-07":120,"2026-04-08":30,"2026-04-09":69,"2026-04-10":31,"2026-04-11":6,"2026-04-13":16,"2026-04-14":41,"2026-04-15":129,"2026-04-16":89,"2026-04-17":177,"2026-04-18":91,"2026-04-19":27,"2026-04-20":38,"2026-04-21":96,"2026-04-22":79,"2026-04-23":108,"2026-04-24":97,"2026-04-25":50,"2026-04-26":18,"2026-04-27":135,"2026-04-28":95,"2026-04-29":213,"2026-04-30":88,"2026-05-01":159,"2026-05-02":22,"2026-05-03":85,"2026-05-04":52,"2026-05-05":171,"2026-05-06":63,"2026-05-07":222,"2026-05-08":80,"2026-05-09":115,"2026-05-10":38,"2026-05-11":156,"2026-05-12":41,"2026-05-13":164,"2026-05-14":49,"2026-05-15":166,"2026-05-16":25,"2026-05-17":123,"2026-05-18":35,"2026-05-19":48};
-const HOURLY_DATA = {0:25,1:19,2:11,3:16,4:15,5:31,6:31,7:159,8:178,9:209,10:283,11:304,12:334,13:279,14:235,15:304,16:301,17:326,18:184,19:188,20:131,21:133,22:102,23:52};
-const PDV_DATA = [
-  {name:"MC DOCE LAR CONQUISTA",sessions:285,avgDur:78},{name:"Riviera Maya",sessions:218,avgDur:48},
-  {name:"MC GRAGOATÁ",sessions:196,avgDur:42},{name:"MC MINHA PRAIA",sessions:171,avgDur:81},
-  {name:"MC Rio do Ouro",sessions:170,avgDur:63},{name:"MC SAN FRANCISCO",sessions:162,avgDur:54},
-  {name:"MC CARIOCA BL.1",sessions:156,avgDur:49},{name:"MC CARIOCA BL.2",sessions:135,avgDur:32},
-  {name:"MC FRANÇA",sessions:134,avgDur:72},{name:"MC MAAYAN",sessions:132,avgDur:71},
-  {name:"MC CAMINHO DOS LAGOS",sessions:132,avgDur:37},{name:"MC Flores de Brito",sessions:119,avgDur:44},
-  {name:"MC DELOS",sessions:117,avgDur:93},{name:"MC ITÁLIA",sessions:104,avgDur:53},
-  {name:"MC Liberty Garden",sessions:103,avgDur:41},{name:"MC NOVOLAR RECREIO",sessions:97,avgDur:38},
-  {name:"MC PEDRA REAL",sessions:95,avgDur:59},{name:"LV FLORES PISCINA",sessions:90,avgDur:39},
-  {name:"MC QAURTIER CATETE",sessions:89,avgDur:25},{name:"MC CAPEMI IRIS",sessions:87,avgDur:30},
-  {name:"Mc Mirante da Taquara",sessions:72,avgDur:35},{name:"MC PEDRO 2",sessions:67,avgDur:29},
-  {name:"MC GLOBAL PARK",sessions:65,avgDur:47},{name:"MC FLORES DO CAMPO",sessions:60,avgDur:27},
-  {name:"MC SPAZIO NITEROI",sessions:56,avgDur:33},{name:"RG Personal",sessions:54,avgDur:60},
-  {name:"MC RIO WONDER",sessions:52,avgDur:41},{name:"MC FREEDOM",sessions:42,avgDur:38},
-  {name:"MC Santiago",sessions:45,avgDur:50},{name:"MC UNICO",sessions:43,avgDur:56},
-  {name:"MC Liberty CentralPark",sessions:40,avgDur:31},{name:"MC ELDORADO TIJUCA",sessions:38,avgDur:62},
-  {name:"MC SOL DA GUANABARA",sessions:44,avgDur:34},{name:"MC RIO ENERGY",sessions:35,avgDur:36},
-  {name:"MC BEL AIR",sessions:34,avgDur:51},{name:"MC LIBERTY HILL",sessions:31,avgDur:35},
-  {name:"MC URBAN S. CRISTÓVÃO",sessions:29,avgDur:45},{name:"MC VILLA AZZURRA",sessions:27,avgDur:44},
-  {name:"MC Liberty Lake",sessions:26,avgDur:39},{name:"MC ROOFTOP VARGAS",sessions:22,avgDur:52},
-  {name:"MC LIBERTY GREEN",sessions:20,avgDur:31},{name:"MC WIND RESIDENCIAL",sessions:18,avgDur:42},
-  {name:"MC ULIVING",sessions:15,avgDur:35},{name:"MC SPAZIO REDENTORE",sessions:14,avgDur:38},
-  {name:"MC BELA VIDA",sessions:13,avgDur:43},{name:"MC LA VISTA",sessions:12,avgDur:40},
-  {name:"MC VARGAS 1140",sessions:11,avgDur:48},{name:"MC JARDINS DO BRITTO",sessions:11,avgDur:28},
-  {name:"MC Santiago 2",sessions:10,avgDur:76},{name:"MC CHACARA DO RIO",sessions:9,avgDur:46},
-  {name:"MC NATURALLE BL.3",sessions:8,avgDur:30},{name:"IV CENTENÁRIO",sessions:7,avgDur:37},
-  {name:"MC CENTRAL PARK 1000",sessions:6,avgDur:44},{name:"MC ORLA PRAINHA",sessions:6,avgDur:55},
-  {name:"LV TRES IRMÃOS",sessions:5,avgDur:58},{name:"MC CHACARAS DO MEIER",sessions:4,avgDur:33},
-  {name:"MC COMPLETO S. GONÇALO",sessions:3,avgDur:50},
-];
-const WEEKLY_DATA = [
-  {week:"Sem 14 (Abr)",sessions:393,avgDur:51},{week:"Sem 15",sessions:437,avgDur:55},
-  {week:"Sem 16",sessions:393,avgDur:48},{week:"Sem 17",sessions:462,avgDur:57},
-  {week:"Sem 18 (Mai)",sessions:555,avgDur:52},{week:"Sem 19",sessions:560,avgDur:50},
-  {week:"Sem 20",sessions:544,avgDur:54},{week:"Sem 21",sessions:506,avgDur:56},
-];
-const TODAY_SESSIONS = [
-  {r:"MC DOCE LAR CONQUISTA",h:8,m:28,dur:28,a:"MC DOCE LAR CONQUISTA"},
-  {r:"MC DOCE LAR CONQUISTA",h:8,m:29,dur:76,a:"MC DOCE LAR CONQUISTA"},
-  {r:"MC DOCE LAR CONQUISTA",h:8,m:33,dur:2,a:"MC DOCE LAR CONQUISTA"},
-  {r:"MC Liberty Garden",h:8,m:21,dur:67,a:"MC LIBERTY GARDEN"},
-  {r:"MC CAPEMI IRIS",h:8,m:7,dur:51,a:"MC CAPEMI IRIS"},
-  {r:"MC QAURTIER CATETE",h:8,m:39,dur:16,a:"DVR 3"},
-  {r:"RG Personal",h:8,m:37,dur:37,a:"MC RG PERSONAL"},
-  {r:"MC Flores de Brito",h:8,m:51,dur:17,a:"MC FLORES DO BRITO"},
-  {r:"MC MAAYAN",h:9,m:16,dur:5,a:"MC MAAYAN"},
-  {r:"MC CARIOCA BL.1",h:9,m:23,dur:3,a:"DVR 3"},
-  {r:"MC CAMINHO DOS LAGOS",h:9,m:32,dur:10,a:"MC CAMINHO DOS LAGOS"},
-  {r:"MC Santiago 2",h:9,m:33,dur:81,a:"DVR 3"},
-  {r:"MC CAPEMI IRIS",h:9,m:35,dur:15,a:"MC CAPEMI IRIS"},
-  {r:"MC QAURTIER CATETE",h:9,m:38,dur:12,a:"DVR 3"},
-  {r:"MC NOVOLAR RECREIO",h:9,m:39,dur:15,a:"DVR 4"},
-  {r:"MC FLORES DO CAMPO",h:9,m:44,dur:17,a:"DVR 3"},
-  {r:"RG Personal",h:9,m:59,dur:107,a:"MC RG PERSONAL"},
-  {r:"MC PEDRA REAL",h:10,m:2,dur:22,a:"DVR 4"},
-  {r:"MC Santiago",h:10,m:7,dur:19,a:"MC SANTIAGO I"},
-  {r:"MC GLOBAL PARK",h:10,m:21,dur:35,a:"DVR 4"},
-  {r:"MC GLOBAL PARK",h:10,m:23,dur:232,a:"DVR 4"},
-  {r:"Mc Mirante da Taquara",h:10,m:28,dur:31,a:"MC MIRANTE DA TAQUARA"},
-  {r:"MC NOVOLAR RECREIO",h:10,m:34,dur:13,a:"DVR 4"},
-  {r:"MC PEDRO 2",h:10,m:42,dur:16,a:"DVR 4"},
-];
+// ═══════════════════════════════════════════════
+//  CSV PARSER — reads data.csv from same folder
+// ═══════════════════════════════════════════════
+function parseCSV(text) {
+  // Remove BOM
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.split("\n");
 
-const TOTAL_SESSIONS = 3850;
-const TOTAL_PDVS = 58;
-const AVG_DUR = 54;
-const MEDIAN_DUR = 28;
+  // Find header row (the one starting with "Level")
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(20, lines.length); i++) {
+    if (lines[i].includes('"Level"') || lines[i].includes('Level')) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) return null;
+
+  // Parse data rows
+  const rows = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const parts = line.split(";").map(p => p.replace(/^"|"$/g, "").trim());
+    if (parts.length < 6) continue;
+    const event = parts[3];
+    if (event !== "Start Two-Way Audio" && event !== "Stop Two-Way Audio") continue;
+    const timeStr = parts[1];
+    if (!timeStr || timeStr === "Time") continue;
+    // Parse "2026/05/19 10:43:14"
+    const dt = new Date(timeStr.replace(/\//g, "-"));
+    if (isNaN(dt.getTime())) continue;
+    rows.push({
+      time: dt,
+      event: event,
+      resource: parts[4],
+      area: parts[5],
+      address: parts.length > 7 ? parts[7] : "",
+    });
+  }
+
+  // Sort chronologically
+  rows.sort((a, b) => a.time - b.time);
+
+  // Pair Start → Stop sessions
+  const sessions = [];
+  const open = {};
+  for (const r of rows) {
+    const key = r.resource;
+    if (r.event === "Start Two-Way Audio") {
+      open[key] = r;
+    } else if (r.event === "Stop Two-Way Audio" && open[key]) {
+      const start = open[key];
+      delete open[key];
+      const dur = (r.time - start.time) / 1000;
+      if (dur > 0 && dur < 3600) {
+        sessions.push({
+          resource: key,
+          area: r.area,
+          start: start.time,
+          stop: r.time,
+          dur: Math.round(dur),
+          address: start.address,
+        });
+      }
+    }
+  }
+
+  // === Aggregate ===
+
+  // Daily
+  const dailyMap = {};
+  sessions.forEach(s => {
+    const d = s.start.toISOString().slice(0, 10);
+    dailyMap[d] = (dailyMap[d] || 0) + 1;
+  });
+
+  // Hourly
+  const hourlyMap = {};
+  for (let h = 0; h < 24; h++) hourlyMap[h] = 0;
+  sessions.forEach(s => { hourlyMap[s.start.getHours()]++; });
+
+  // PDV stats
+  const pdvMap = {};
+  sessions.forEach(s => {
+    if (!pdvMap[s.resource]) pdvMap[s.resource] = { durs: [], area: s.area };
+    pdvMap[s.resource].durs.push(s.dur);
+  });
+  const pdvData = Object.entries(pdvMap).map(([name, v]) => ({
+    name,
+    sessions: v.durs.length,
+    avgDur: Math.round(v.durs.reduce((a, b) => a + b, 0) / v.durs.length),
+    area: v.area,
+  })).sort((a, b) => b.sessions - a.sessions);
+
+  // Weekly
+  const weekMap = {};
+  sessions.forEach(s => {
+    const d = s.start;
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    const weekNum = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const key = `${weekNum}`;
+    if (!weekMap[key]) weekMap[key] = { durs: [], weekNum };
+    weekMap[key].durs.push(s.dur);
+  });
+  const weeklyData = Object.values(weekMap)
+    .sort((a, b) => a.weekNum - b.weekNum)
+    .map(w => ({
+      week: `Sem ${w.weekNum}`,
+      sessions: w.durs.length,
+      avgDur: Math.round(w.durs.reduce((a, b) => a + b, 0) / w.durs.length),
+    }));
+
+  // Today sessions
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const todaySessions = sessions
+    .filter(s => s.start.toISOString().slice(0, 10) === todayStr)
+    .map(s => ({
+      r: s.resource,
+      h: s.start.getHours(),
+      m: s.start.getMinutes(),
+      dur: s.dur,
+      a: s.area,
+    }));
+
+  // Duration profile
+  const fast = sessions.filter(s => s.dur < 30).length;
+  const mid = sessions.filter(s => s.dur >= 30 && s.dur <= 120).length;
+  const long = sessions.filter(s => s.dur > 120).length;
+  const total = sessions.length;
+
+  // Date range
+  const allDurs = sessions.map(s => s.dur);
+  const sortedDurs = [...allDurs].sort((a, b) => a - b);
+
+  // Get report metadata
+  let exportTime = "";
+  let reportRange = "";
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    if (lines[i].includes("Export Time")) {
+      exportTime = lines[i].replace(/.*Export Time[:\s]*/i, "").replace(/"/g, "").trim();
+    }
+    if (lines[i].includes("Report Time")) {
+      reportRange = lines[i].replace(/.*Report Time[:\s]*/i, "").replace(/"/g, "").trim();
+    }
+  }
+
+  return {
+    totalRows: rows.length,
+    totalSessions: total,
+    totalPDVs: pdvData.length,
+    avgDur: total > 0 ? Math.round(allDurs.reduce((a, b) => a + b, 0) / total) : 0,
+    medianDur: total > 0 ? sortedDurs[Math.floor(total / 2)] : 0,
+    dailyData: dailyMap,
+    hourlyData: hourlyMap,
+    pdvData,
+    weeklyData,
+    todaySessions,
+    profile: {
+      fast: total > 0 ? Math.round((fast / total) * 100) : 0,
+      mid: total > 0 ? Math.round((mid / total) * 100) : 0,
+      long: total > 0 ? Math.round((long / total) * 100) : 0,
+    },
+    exportTime,
+    reportRange,
+    dateFrom: sessions.length > 0 ? sessions[0].start : null,
+    dateTo: sessions.length > 0 ? sessions[sessions.length - 1].start : null,
+  };
+}
 
 const fmt = n => n.toLocaleString("pt-BR");
 const fmtSec = s => s >= 60 ? `${Math.floor(s/60)}m${s%60>0?` ${s%60}s`:""}` : `${s}s`;
+const fmtDate = d => d ? d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}).replace(". ","").replace(".","") : "—";
 
-// ═══ COMPONENTS ═══
+// ═══ UI COMPONENTS ═══
 
 function KPICard({ label, value, sub, icon, color }) {
   return (
-    <div style={{
-      background:"#111318",borderRadius:16,padding:"22px 20px",
-      border:"1px solid #1c2030",position:"relative",overflow:"hidden",
-    }}>
+    <div style={{background:"#111318",borderRadius:16,padding:"22px 20px",border:"1px solid #1c2030",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:color}}/>
       <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
         <span style={{fontSize:15,opacity:0.8}}>{icon}</span>
@@ -133,8 +233,7 @@ function HeatRow({ data }) {
           <div key={h} title={`${String(h).padStart(2,"0")}h — ${v} abordagens`} style={{
             aspectRatio:"1",borderRadius:5,
             background:`rgba(245,158,11,${0.06+t*0.88})`,
-            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-            cursor:"default",
+            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"default",
           }}>
             <span style={{fontSize:7,color:t>0.45?"#fff":"#5c6578",fontWeight:600,lineHeight:1}}>{String(h).padStart(2,"0")}</span>
             <span style={{fontSize:8.5,color:t>0.45?"#fff":"#b0b8cc",fontWeight:700,lineHeight:1.3}}>{v}</span>
@@ -171,8 +270,7 @@ function BarRank({ data, maxItems, sortKey, showDuration }) {
               }}/>
               <div style={{
                 position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",
-                fontSize:10,fontWeight:700,color:"#eceff4",fontFamily:"'Space Mono',monospace",
-                display:"flex",gap:8,
+                fontSize:10,fontWeight:700,color:"#eceff4",fontFamily:"'Space Mono',monospace",display:"flex",gap:8,
               }}>
                 <span>{d.sessions}</span>
                 {showDuration && <span style={{color:"#5c6578",fontWeight:400}}>{fmtSec(d.avgDur)}</span>}
@@ -239,21 +337,87 @@ function WeeklyCards({ data }) {
   );
 }
 
-// ═══ MAIN ═══
+// ═══ MAIN DASHBOARD ═══
 function Dashboard() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("geral");
   const [pdvSort, setPdvSort] = useState("sessions");
   const [range, setRange] = useState("all");
   const [search, setSearch] = useState("");
 
+  // Load CSV on mount
+  useEffect(() => {
+    fetch("data.csv")
+      .then(r => {
+        if (!r.ok) throw new Error("Arquivo data.csv não encontrado. Faça upload do CSV com o nome 'data.csv' na raiz do repositório.");
+        return r.text();
+      })
+      .then(text => {
+        const parsed = parseCSV(text);
+        if (!parsed || parsed.totalSessions === 0) {
+          throw new Error("CSV carregado mas nenhuma sessão Two-Way Audio encontrada. Verifique o formato do arquivo.");
+        }
+        setData(parsed);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
   const filteredPDV = useMemo(() => {
-    let d = PDV_DATA;
+    if (!data) return [];
+    let d = data.pdvData;
     if (search) d = d.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
     return d;
-  }, [search]);
+  }, [data, search]);
 
-  const totalHours = Math.round((TOTAL_SESSIONS * AVG_DUR) / 3600);
-  const dailyAvg = Math.round(TOTAL_SESSIONS / Object.keys(DAILY_DATA).length);
+  const S = {bg:"#090b10",card:"#111318",border:"#1c2030",fg:"#eceff4",muted:"#5c6578",accent:"#f59e0b"};
+
+  // LOADING STATE
+  if (loading) return (
+    <div style={{minHeight:"100vh",background:S.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+      <div className="loader"/>
+      <span style={{color:S.muted,fontSize:13}}>Carregando data.csv...</span>
+    </div>
+  );
+
+  // ERROR STATE
+  if (error) return (
+    <div style={{minHeight:"100vh",background:S.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:40}}>
+      <div style={{fontSize:40}}>⚠️</div>
+      <div style={{color:"#ef4444",fontSize:15,fontWeight:600,textAlign:"center"}}>{error}</div>
+      <div style={{color:S.muted,fontSize:12,textAlign:"center",maxWidth:500,lineHeight:1.7}}>
+        O dashboard precisa de um arquivo <code style={{background:"#1c2030",padding:"2px 6px",borderRadius:4}}>data.csv</code> na mesma pasta do index.html.<br/>
+        Exporte o Service_Log do HikCentral e faça upload no repositório com o nome <b>data.csv</b>.
+      </div>
+    </div>
+  );
+
+  // COMPUTED VALUES
+  const totalHours = Math.round((data.totalSessions * data.avgDur) / 3600);
+  const numDays = Object.keys(data.dailyData).length;
+  const dailyAvg = numDays > 0 ? Math.round(data.totalSessions / numDays) : 0;
+
+  // Hourly commercial %
+  const commercialHours = [7,8,9,10,11,12,13,14,15,16,17,18];
+  const commercialTotal = commercialHours.reduce((s,h) => s + (data.hourlyData[h]||0), 0);
+  const commercialPct = data.totalSessions > 0 ? Math.round((commercialTotal/data.totalSessions)*100) : 0;
+
+  // Peak hour
+  let peakHour = 0, peakVal = 0;
+  Object.entries(data.hourlyData).forEach(([h,v]) => { if (v > peakVal) { peakVal = v; peakHour = h; }});
+
+  // Top daily
+  const dailyEntries = Object.entries(data.dailyData).sort((a,b) => b[1] - a[1]);
+  const topDays = dailyEntries.slice(0, 3);
+
+  // Top PDV insights
+  const top1 = data.pdvData[0];
+  const longestAvg = [...data.pdvData].filter(p=>p.sessions>=10).sort((a,b)=>b.avgDur-a.avgDur)[0];
 
   const tabs = [
     {id:"geral",label:"Visão Geral",ico:"◉"},
@@ -262,14 +426,10 @@ function Dashboard() {
     {id:"heat",label:"Mapa de Calor",ico:"◈"},
   ];
 
-  const S = {
-    bg:"#090b10",card:"#111318",border:"#1c2030",fg:"#eceff4",muted:"#5c6578",accent:"#f59e0b",
-  };
-
   return (
     <div style={{minHeight:"100vh",background:S.bg,color:S.fg,fontFamily:"'DM Sans','Segoe UI',sans-serif",padding:"20px 18px"}}>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:24}}>
         <div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:3}}>
@@ -286,12 +446,12 @@ function Dashboard() {
           </div>
         </div>
         <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:10,padding:"10px 16px",fontSize:11,color:S.muted,lineHeight:1.7}}>
-          <div>Período: <strong style={{color:S.fg}}>02/Abr – 19/Mai 2026</strong></div>
-          <div>Registros: <strong style={{color:S.fg}}>{fmt(8035)}</strong> · Sessões: <strong style={{color:S.fg}}>{fmt(TOTAL_SESSIONS)}</strong></div>
+          <div>Período: <strong style={{color:S.fg}}>{fmtDate(data.dateFrom)} – {fmtDate(data.dateTo)}</strong></div>
+          <div>Registros: <strong style={{color:S.fg}}>{fmt(data.totalRows)}</strong> · Sessões: <strong style={{color:S.fg}}>{fmt(data.totalSessions)}</strong></div>
         </div>
       </div>
 
-      {/* ── TABS ── */}
+      {/* TABS */}
       <div style={{display:"flex",gap:3,marginBottom:22,background:S.card,borderRadius:11,padding:4,border:`1px solid ${S.border}`,width:"fit-content"}}>
         {tabs.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
@@ -307,12 +467,11 @@ function Dashboard() {
       {/* ═══ TAB GERAL ═══ */}
       {tab==="geral" && <>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(175px,1fr))",gap:12,marginBottom:22}}>
-          <KPICard icon="🎙️" label="Abordagens" value={fmt(TOTAL_SESSIONS)} sub="sessões de áudio bidirecional" color="#f59e0b"/>
-          <KPICard icon="🏪" label="PDVs Ativos" value={TOTAL_PDVS} sub="mercadinhos monitorados" color="#22c55e"/>
-          <KPICard icon="⏱" label="Duração Média" value={fmtSec(AVG_DUR)} sub={`Mediana: ${fmtSec(MEDIAN_DUR)}`} color="#3b82f6"/>
+          <KPICard icon="🎙️" label="Abordagens" value={fmt(data.totalSessions)} sub="sessões de áudio bidirecional" color="#f59e0b"/>
+          <KPICard icon="🏪" label="PDVs Ativos" value={data.totalPDVs} sub="mercadinhos monitorados" color="#22c55e"/>
+          <KPICard icon="⏱" label="Duração Média" value={fmtSec(data.avgDur)} sub={`Mediana: ${fmtSec(data.medianDur)}`} color="#3b82f6"/>
           <KPICard icon="📊" label="Média Diária" value={dailyAvg} sub={`≈ ${totalHours}h de áudio total`} color="#a855f7"/>
         </div>
-
         <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14,marginBottom:22}}>
           <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -327,27 +486,25 @@ function Dashboard() {
                 ))}
               </div>
             </div>
-            <DailyBars data={DAILY_DATA} range={range}/>
+            <DailyBars data={data.dailyData} range={range}/>
           </div>
           <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
             <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:12}}>Evolução Semanal</span>
-            <WeeklyCards data={WEEKLY_DATA}/>
+            <WeeklyCards data={data.weeklyData}/>
           </div>
         </div>
-
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
             <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:12}}>Distribuição Horária</span>
-            <HeatRow data={HOURLY_DATA}/>
+            <HeatRow data={data.hourlyData}/>
             <div style={{marginTop:14,display:"flex",gap:14,fontSize:10,color:S.muted,flexWrap:"wrap"}}>
-              <span>🔥 Pico: <b style={{color:S.fg}}>12h (334)</b></span>
-              <span>⚡ Horário comercial: <b style={{color:S.fg}}>72%</b></span>
-              <span>🌙 Madrugada: <b style={{color:S.fg}}>3%</b></span>
+              <span>🔥 Pico: <b style={{color:S.fg}}>{peakHour}h ({peakVal})</b></span>
+              <span>⚡ Horário comercial: <b style={{color:S.fg}}>{commercialPct}%</b></span>
             </div>
           </div>
           <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
             <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:12}}>Top 10 PDVs</span>
-            <BarRank data={PDV_DATA} maxItems={10} sortKey="sessions" showDuration={true}/>
+            <BarRank data={data.pdvData} maxItems={10} sortKey="sessions" showDuration={true}/>
           </div>
         </div>
       </>}
@@ -374,11 +531,12 @@ function Dashboard() {
             </div>
           </div>
           <BarRank data={filteredPDV} maxItems={40} sortKey={pdvSort} showDuration={true}/>
-          <div style={{marginTop:18,padding:"14px 16px",background:S.bg,borderRadius:10,fontSize:11,color:S.muted,lineHeight:1.7}}>
-            <b style={{color:"#f59e0b"}}>💡 Insights:</b> MC DOCE LAR CONQUISTA lidera em volume (285) e duração média (78s), indicando alta demanda de intervenção.
-            MC DELOS possui maior duração média entre PDVs expressivos (93s — possível ponto crítico).
-            PDVs com duração curta e alto volume (CARIOCA BL.2 — 32s, QAURTIER CATETE — 25s) indicam abordagens preventivas rápidas.
-          </div>
+          {top1 && longestAvg && (
+            <div style={{marginTop:18,padding:"14px 16px",background:S.bg,borderRadius:10,fontSize:11,color:S.muted,lineHeight:1.7}}>
+              <b style={{color:"#f59e0b"}}>💡 Insights:</b> {top1.name} lidera em volume ({top1.sessions} sessões, {fmtSec(top1.avgDur)} avg).
+              {longestAvg.name !== top1.name && <> {longestAvg.name} possui maior duração média entre PDVs expressivos ({fmtSec(longestAvg.avgDur)}).</>}
+            </div>
+          )}
         </div>
       )}
 
@@ -386,48 +544,49 @@ function Dashboard() {
       {tab==="tempo" && (<div>
         <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px",marginBottom:16}}>
           <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:12}}>Abordagens Diárias — Período Completo</span>
-          <DailyBars data={DAILY_DATA} range="all"/>
-          <div style={{marginTop:10,fontSize:10,color:S.muted}}>
-            📌 Picos: <b style={{color:S.fg}}>07/Mai (222)</b> · <b style={{color:S.fg}}>29/Abr (213)</b> · <b style={{color:S.fg}}>05/Mai (171)</b> · Fins de semana em barras mais claras
-          </div>
+          <DailyBars data={data.dailyData} range="all"/>
+          {topDays.length > 0 && (
+            <div style={{marginTop:10,fontSize:10,color:S.muted}}>
+              📌 Picos: {topDays.map(([d,v],i) => <span key={d}>{i>0?" · ":" "}<b style={{color:S.fg}}>{d.slice(5)} ({v})</b></span>)}
+            </div>
+          )}
         </div>
         <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px",marginBottom:16}}>
           <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:12}}>Tendência Semanal</span>
-          <WeeklyCards data={WEEKLY_DATA}/>
-          <div style={{marginTop:12,fontSize:10,color:S.muted}}>
-            📈 Crescimento de <b style={{color:"#22c55e"}}>+42%</b> entre semanas 14 e 19 (amadurecimento da operação)
-          </div>
+          <WeeklyCards data={data.weeklyData}/>
         </div>
-        <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
-          <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:14}}>Hoje — 19/Mai · {TODAY_SESSIONS.length} abordagens</span>
-          <div style={{display:"flex",flexDirection:"column",gap:3}}>
-            {[...TODAY_SESSIONS].sort((a,b)=>b.h===a.h?b.m-a.m:b.h-a.h).map((s,i)=>(
-              <div key={i} style={{
-                display:"flex",alignItems:"center",gap:10,padding:"7px 12px",
-                background:i%2===0?"#0c0e14":"transparent",borderRadius:7,fontSize:12,
-              }}>
-                <span style={{fontFamily:"'Space Mono',monospace",color:"#f59e0b",fontWeight:700,width:48,fontSize:11}}>
-                  {String(s.h).padStart(2,"0")}:{String(s.m).padStart(2,"0")}
-                </span>
-                <span style={{flex:1,fontWeight:500}}>{s.r}</span>
-                <span style={{color:S.muted,fontSize:10,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.a}</span>
-                <span style={{
-                  fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:10.5,
-                  color:s.dur>60?"#fbbf24":"#22c55e",
-                  background:s.dur>60?"rgba(251,191,36,0.1)":"rgba(34,197,94,0.1)",
-                  padding:"2px 8px",borderRadius:4,minWidth:42,textAlign:"center",
-                }}>{fmtSec(s.dur)}</span>
-              </div>
-            ))}
+        {data.todaySessions.length > 0 && (
+          <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
+            <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:14}}>Hoje · {data.todaySessions.length} abordagens</span>
+            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+              {[...data.todaySessions].sort((a,b)=>b.h===a.h?b.m-a.m:b.h-a.h).map((s,i)=>(
+                <div key={i} style={{
+                  display:"flex",alignItems:"center",gap:10,padding:"7px 12px",
+                  background:i%2===0?"#0c0e14":"transparent",borderRadius:7,fontSize:12,
+                }}>
+                  <span style={{fontFamily:"'Space Mono',monospace",color:"#f59e0b",fontWeight:700,width:48,fontSize:11}}>
+                    {String(s.h).padStart(2,"0")}:{String(s.m).padStart(2,"0")}
+                  </span>
+                  <span style={{flex:1,fontWeight:500}}>{s.r}</span>
+                  <span style={{color:S.muted,fontSize:10,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.a}</span>
+                  <span style={{
+                    fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:10.5,
+                    color:s.dur>60?"#fbbf24":"#22c55e",
+                    background:s.dur>60?"rgba(251,191,36,0.1)":"rgba(34,197,94,0.1)",
+                    padding:"2px 8px",borderRadius:4,minWidth:42,textAlign:"center",
+                  }}>{fmtSec(s.dur)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>)}
 
       {/* ═══ TAB HEATMAP ═══ */}
       {tab==="heat" && (<div>
         <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"22px 22px",marginBottom:16}}>
           <span style={{fontSize:15,fontWeight:700,display:"block",marginBottom:16}}>Mapa de Calor — Volume por Hora</span>
-          <HeatRow data={HOURLY_DATA}/>
+          <HeatRow data={data.hourlyData}/>
           <div style={{marginTop:20,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
             {[
               {label:"Madrugada (00–06h)",range:[0,1,2,3,4,5],color:"#6366f1"},
@@ -435,12 +594,12 @@ function Dashboard() {
               {label:"Tarde (13–18h)",range:[13,14,15,16,17,18],color:"#ef6c00"},
               {label:"Noite (19–23h)",range:[19,20,21,22,23],color:"#8b5cf6"},
             ].map(p=>{
-              const tot = p.range.reduce((s,h)=>s+(HOURLY_DATA[h]||0),0);
+              const tot = p.range.reduce((s,h)=>s+(data.hourlyData[h]||0),0);
               return (
                 <div key={p.label} style={{background:S.bg,borderRadius:10,padding:"14px 16px",borderLeft:`3px solid ${p.color}`}}>
                   <div style={{fontSize:10,color:S.muted,marginBottom:4}}>{p.label}</div>
                   <div style={{fontSize:24,fontWeight:800,fontFamily:"'Space Mono',monospace"}}>{tot}</div>
-                  <div style={{fontSize:10,color:S.muted}}>{((tot/TOTAL_SESSIONS)*100).toFixed(1)}% do total</div>
+                  <div style={{fontSize:10,color:S.muted}}>{data.totalSessions>0?((tot/data.totalSessions)*100).toFixed(1):"0"}% do total</div>
                 </div>
               );
             })}
@@ -449,14 +608,14 @@ function Dashboard() {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
             <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:12}}>Top 10 — Maior Duração Média</span>
-            <BarRank data={PDV_DATA} maxItems={10} sortKey="avgDur" showDuration={false}/>
+            <BarRank data={data.pdvData.filter(p=>p.sessions>=5)} maxItems={10} sortKey="avgDur" showDuration={false}/>
           </div>
           <div style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:14,padding:"18px 20px"}}>
             <span style={{fontSize:13,fontWeight:700,display:"block",marginBottom:14}}>Perfil das Abordagens</span>
             {[
-              {label:"Rápidas < 30s",pct:52,desc:"Verificações e preventivas",color:"#22c55e"},
-              {label:"Padrão 30s – 2min",pct:35,desc:"Interações de rotina",color:"#f59e0b"},
-              {label:"Longas > 2min",pct:13,desc:"Incidentes ou acompanhamento",color:"#ef4444"},
+              {label:"Rápidas < 30s",pct:data.profile.fast,desc:"Verificações e preventivas",color:"#22c55e"},
+              {label:"Padrão 30s – 2min",pct:data.profile.mid,desc:"Interações de rotina",color:"#f59e0b"},
+              {label:"Longas > 2min",pct:data.profile.long,desc:"Incidentes ou acompanhamento",color:"#ef4444"},
             ].map(it=>(
               <div key={it.label} style={{background:S.bg,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -473,10 +632,10 @@ function Dashboard() {
         </div>
       </div>)}
 
-      {/* ── FOOTER ── */}
+      {/* FOOTER */}
       <div style={{marginTop:28,paddingTop:14,borderTop:`1px solid ${S.border}`,display:"flex",justifyContent:"space-between",fontSize:9.5,color:S.muted,flexWrap:"wrap",gap:8}}>
         <span>Roda Conveniência · Central de Monitoramento · HikCentral Professional</span>
-        <span>Service_Log exportado 19/05/2026 10:45 · {fmt(8035)} registros processados</span>
+        <span>{data.exportTime ? `Exportado: ${data.exportTime} · ` : ""}{fmt(data.totalRows)} registros processados</span>
       </div>
     </div>
   );
